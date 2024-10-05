@@ -129,8 +129,6 @@ local function parseTestResultOutput(result, tree)
 	for _, output in pairs(res) do
 		neotest_output[output.pos_id] = output
 	end
-	logger.info("res: " .. vim.inspect(res))
-	logger.info("neotest_output: " .. vim.inspect(neotest_output))
 	return neotest_output
 end
 
@@ -203,6 +201,45 @@ return function(config)
 				local context = {
 					pos_id = pos.id,
 				}
+
+				if args.extra_args and args.extra_args.target then
+					local list_cmd = { "swift", "test", "list" }
+					local list_cmd_string = table.concat(list_cmd, " ")
+					logger.debug("Running Go list: " .. list_cmd_string)
+					local result = vim.system(cmd, { text = true }):wait()
+
+					local err = nil
+					if result.code == 1 then
+						err = "go list:"
+						if result.stdout ~= nil and result.stdout ~= "" then
+							err = err .. " " .. result.stdout
+						end
+						if result.stdout ~= nil and result.stderr ~= "" then
+							err = err .. " " .. result.stderr
+						end
+						logger.debug({ "Go list error: ", err })
+					end
+
+					local output = result.stdout or ""
+					local suites = {}
+					for line in output:gmatch("[^\r\n]+") do
+						local suite, namespace, test = string.match(line, "([%w-_])+%.([%w-_])+%/([%w-_])")
+						if suite and namespace and test then
+							table.insert(suites, suite)
+						end
+					end
+					for _, suite in ipairs(suites) do
+						if string.find(pos.path, suite) then
+                            cmd = table.insert(cmd, "--filter")
+                            cmd = table.insert(cmd, suite)
+							return {
+								command = cmd,
+								cwd = get_root(pos.path),
+								context = context,
+							}
+						end
+					end
+				end
 
 				--- @type neotest.RunSpec
 				local run_spec = {
