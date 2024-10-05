@@ -1,6 +1,7 @@
 local logger = require("neotest-swift.logging")
 local lib = require("neotest.lib")
 local async = require("neotest.async")
+local nio = require("nio")
 
 --- @class TestData
 --- @field pos_id string
@@ -15,6 +16,17 @@ local async = require("neotest.async")
 --- @field name string Test name.
 --- @field class string Class name.
 --- @field output? string[] Test output.
+---
+--- @class RunspecContext
+--- @field pos_id string Neotest tree position id.
+--- @field errors? table<string> Non-test errors to show in the final output.
+--- @field is_dap_active boolean? If true, parsing of test output will occur.
+---
+---@class neotest.SwiftTestRunArgs
+---@field tree neotest.Tree
+---@field extra_args? string[]
+---@field strategy string
+---@field runTarget boolean?
 
 local treesitter_queries = [[
     ;; Tests classes
@@ -38,6 +50,21 @@ local treesitter_queries = [[
 
 local get_root = lib.files.match_root_pattern("Package.swift")
 
+--- @param test_name string
+--- @param dap_args? table
+--- @return table | nil
+local function get_dap_config(test_name, dap_args)
+  -- :help dap-configuration
+  return vim.tbl_extend('force', {
+    type = "swift",
+    name = "Neotest-swift",
+    request = "launch",
+    mode = "test",
+    program = "${fileDirname}",
+    args = { "--filter", test_name },
+  }, dap_args or {})
+end
+
 ---@param result neotest.StrategyResult
 ---@param tree neotest.Tree
 local function parseTestResultOutput(result, tree)
@@ -54,6 +81,7 @@ local function parseTestResultOutput(result, tree)
 		local child = node:data()
 		logger.info("Node info: " .. child.id .. " - " .. child.type)
 		if child.type == "test" then
+            -- id pattern /Users/emmet/projects/hello/Tests/AppTests/fileName.swift::className::testName
 			local class_name, test_name = string.match(child.id, "[:][:]([%w_-]+)[:][:]([%w_-]+)")
 			if class_name and test_name then
 				local simple_name = class_name .. "/" .. test_name
@@ -89,9 +117,9 @@ local function parseTestResultOutput(result, tree)
 	local errors = {}
 	for _, line in ipairs(raw_output) do
 		if line:match("^Test Case") then
-			-- Capture the class name, test method, and result (passed/failed/skipped/started)
-			-- Test Case '-[PlannotateCommonTests.DTO_UserLoginTests testInit]' passed (0.000 seconds).
-			local suite_name, class_name, test_name, status =
+			-- Capture the suite_name, class name, test name, and status (passed/failed/skipped/started)
+			-- Test Case '-[CommonTests.DTO_UserLoginTests testInit]' passed (0.000 seconds).
+			local _, class_name, test_name, status =
 				string.match(line, "[%s%w]*'-%[([%w_-]+)%.([%w_-]+)%s+([%w_-]+)%]'%s+(%w+)")
 			if status == "started" then
 				simple_name = class_name .. "/" .. test_name
@@ -133,6 +161,8 @@ local function parseTestResultOutput(result, tree)
 end
 
 ---@class neotest-swift._AdapterConfig
+---@field is_test_file? fun(file_path: string):boolean
+---@field dap_args? table
 ---@param config neotest-swift._AdapterConfig
 ---@return neotest.Adapter
 return function(config)
@@ -170,6 +200,14 @@ return function(config)
 			if not tree then
 				logger.error("Unexpectedly did not receive a neotest.Tree.")
 				return
+			end
+
+			local strategy_config = nil
+			if args.strategy == "dap" then
+                -- id pattern /Users/emmet/projects/hello/Tests/AppTests/fileName.swift::className::testName
+                local class_name, test_name = string.match(pos.id, "[:][:]([%w_-]+)[:][:]([%w_-]+)")
+				strategy_config = get_dap_config(class_name .. "/" .. test_name)
+				logger.debug("DAP strategy used: " .. vim.inspect(strategy_config))
 			end
 
 			-- Below is the main logic of figuring out how to execute tests. In short,
@@ -246,6 +284,7 @@ return function(config)
 					command = cmd,
 					cwd = get_root(pos.path),
 					context = context,
+					strategy = strategy_config,
 				}
 
 				logger.debug({ "RunSpec:", run_spec })
@@ -274,6 +313,7 @@ return function(config)
 					command = cmd,
 					cwd = get_root(pos.path),
 					context = context,
+					strategy = strategy_config,
 				}
 
 				logger.debug({ "RunSpec:", run_spec })
@@ -307,6 +347,7 @@ return function(config)
 					command = cmd,
 					cwd = get_root(pos.path),
 					context = context,
+					strategy = strategy_config,
 				}
 
 				logger.debug({ "RunSpec:", run_spec })
@@ -327,6 +368,18 @@ return function(config)
 			--- Test command (e.g. 'swift test') status.
 			--- @type neotest.ResultStatus
 			local result_status = nil
+
+			-- @type RunspecContext
+			local context = spec.context
+
+			if context and context.is_dap_active and context.pos_id then
+				local neotest_result = {}
+				-- return early if test result processing is not desired.
+				neotest_result[context.pos_id] = {
+					status = "skipped",
+				}
+				return neotest_result
+			end
 
 			-- if neotest_result[pos.id] and neotest_result[pos.id].status == "skipped" then
 			-- keep the status if it was already decided to be skipped.

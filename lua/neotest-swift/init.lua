@@ -11,11 +11,15 @@ local function is_test_file(file_path)
 end
 
 ---@class neotest-swift.AdapterConfig
+---@field is_test_file? fun(file_path: string):boolean
+---@field dap? table
+---@field args? string[]|fun(runner: string, position: neotest.Position, strategy: string): string[]
 ---@param config neotest-swift.AdapterConfig
 local augment_config = function(config)
 	---@type neotest-swift._AdapterConfig
 	return {
 		is_test_file = config.is_test_file or is_test_file,
+		dap_args = config.dap,
 	}
 end
 

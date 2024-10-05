@@ -6,7 +6,7 @@ This is a basic [neotest](https://github.com/nvim-neotest/neotest) adapter that 
 
 ### Features
 
-- [x] Running a single test case, all the tests in a file, or all the tests in a project
+- [x] Running a single test case, all the tests in a file, all the tests in a target or all the tests in a project
 - [x] Test watching
 - [x] Virtual text showing test failure messages
 - [x] Displaying full and short test output
@@ -33,6 +33,8 @@ use {
 
 ### Configuration
 
+#### Neotest
+
 Provide your adapters and other config to the setup function.
 
 ```lua
@@ -47,13 +49,51 @@ require("neotest").setup({
 })
 ```
 
+#### nvim-dap
+
+Requires:
+* [nvim-dap](https://github.com/mfussenegger/nvim-dap)
+* [codelldb](https://github.com/vadimcn/codelldb)
+  * I installed it with [Mason](https://github.com/williamboman/mason.nvim)
+* (Optional) [nvim-dap-ui](https://github.com/rcarriga/nvim-dap-ui)
+
+
+```lua
+local dap = require("dap")
+
+dap.adapters.codelldb = {
+	type = "server",
+	port = "${port}",
+	executable = {
+		command = "/Users/emmet/.local/share/nvim/mason/bin/codelldb", -- Modify with your absolute path
+		args = { "--port", "${port}" },
+	},
+}
+
+dap.configurations.swift = {
+  {
+    name = "Launch file",
+    type = "codelldb",
+    request = "launch",
+    program = function()
+      return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
+    end,
+    cwd = '${workspaceFolder}',
+    stopOnEntry = false,
+  },
+}
+```
+
+
 ### Helpful Keybindings
 
 ```lua
 -- Neotest
 vim.keymap.set("n", "<Leader>tr", function() require("neotest").run.run() end, { desc = 'Run nearest test' })
+vim.keymap.set("n", "<Leader>td", function() require("neotest").run.run() end, { desc = 'Debug nearest test' })
 vim.keymap.set("n", "<Leader>tf", function() require("neotest").run.run(vim.fn.expand("%")) end, { desc = 'Run all tests in file' })
 vim.keymap.set("n", "<Leader>ta", function() require("neotest").run.run({ suite = true }) end, { desc = 'Run all tests in project' })
+vim.keymap.set("n", "<Leader>tt", function() require("neotest").run.run({ suite = true, extra_args = { target = true } }) end, { desc = 'Run all tests in target (swift).' })
 vim.keymap.set("n", "<Leader>tw", function() require("neotest").watch.toggle() end, { silent = true, desc = 'Watch test' })
 vim.keymap.set("n", "<Leader>ts", function() require("neotest").summary.toggle() end, { silent = true, desc = 'Test summary' })
 vim.keymap.set("n", "<Leader>to", function() require("neotest").output.open({ short = true, enter = true }) end, { silent = true, desc = 'Open test output' })
