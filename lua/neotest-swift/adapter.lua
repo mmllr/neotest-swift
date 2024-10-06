@@ -258,7 +258,7 @@ return function(config)
 					logger.error("Swift packageName not found.")
 				end
 
-				local test_bundle = ".build/debug/" .. package_name .. ".xctest"
+				local test_bundle = ".build/debug/" .. package_name .. "PackageTests.xctest"
 				strategy_config = get_dap_config(full_test_name, test_bundle, config.dap_args or {})
 				logger.debug("DAP strategy used: " .. vim.inspect(strategy_config))
 				return {
