@@ -269,6 +269,7 @@ return function(config)
 				local describe_output = describe_result.stdout or ""
 				local package_name
 				for line in describe_output:gmatch("[^\r\n]+") do
+                    logger.info("Got line: " .. line)
 					-- Search for first line line containing Name: hello
 					package_name = string.match(line, 'Name:%s*"([^"]+)"')
 					if package_name then
