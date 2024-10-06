@@ -1,7 +1,6 @@
 local logger = require("neotest-swift.logging")
 local lib = require("neotest.lib")
 local async = require("neotest.async")
-local nio = require("nio")
 
 --- @class TestData
 --- @field pos_id string
@@ -68,7 +67,7 @@ end
 
 -- @return vim.SystemObj
 local function swift_test_list()
-	local list_cmd = { "swift", "test", "list", "--skip-build" }
+	local list_cmd = { "swift", "test", "list", "-c", "debug", "--skip-build" }
 	local list_cmd_string = table.concat(list_cmd, " ")
 	logger.debug("Running swift list: " .. list_cmd_string)
 	local result = vim.system(list_cmd, { text = true }):wait()
@@ -228,6 +227,8 @@ return function(config)
 				pos_id = pos.id,
 			}
 
+			local cmd = { "swift", "test", "-c", "debug" }
+
 			local strategy_config = nil
 			if args.strategy == "dap" then
 				-- id pattern /Users/emmet/projects/hello/Tests/AppTests/fileName.swift::className::testName
@@ -261,7 +262,7 @@ return function(config)
 				strategy_config = get_dap_config(full_test_name, test_bundle, config.dap_args or {})
 				logger.debug("DAP strategy used: " .. vim.inspect(strategy_config))
 				return {
-					command = { "swift", "test" },
+					command = cmd,
 					cwd = get_root(pos.path),
 					context = context,
 					strategy = strategy_config,
@@ -292,7 +293,6 @@ return function(config)
 			if pos.type == "dir" then
 				-- A runspec is to be created, based on running all tests in the given
 				-- directory.
-				local cmd = { "swift", "test" }
 
 				if args.extra_args and args.extra_args.target then
 					local list_result = swift_test_list()
@@ -336,7 +336,6 @@ return function(config)
 					end
 				end
 
-				local cmd = { "swift", "test" }
 				for _, class in ipairs(classes) do
 					table.insert(cmd, "--filter")
 					table.insert(cmd, class)
@@ -366,7 +365,6 @@ return function(config)
 					end
 				end
 
-				local cmd = { "swift", "test" }
 				for _, test in ipairs(tests) do
 					table.insert(cmd, "--filter")
 					table.insert(cmd, test)
