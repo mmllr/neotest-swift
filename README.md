@@ -3,6 +3,9 @@
 This is a basic [neotest](https://github.com/nvim-neotest/neotest) adapter that allows running tests using the `swift test` command.
 
 ![screenshot](images/neotest-swift.png)
+
+### nvim-dap Integration
+
 ![screenshot](images/neotest-swift-dap.png)
 
 ### Features
