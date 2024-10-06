@@ -61,7 +61,7 @@ Requires:
 ```lua
 local dap = require("dap")
 
-dap.adapters.codelldb = {
+dap.adapters.swift = {
 	type = "server",
 	port = "${port}",
 	executable = {
@@ -73,7 +73,7 @@ dap.adapters.codelldb = {
 dap.configurations.swift = {
   {
     name = "Launch file",
-    type = "codelldb",
+    type = "swift",
     request = "launch",
     program = function()
       return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
@@ -82,6 +82,13 @@ dap.configurations.swift = {
     stopOnEntry = false,
   },
 }
+
+-- Optional config for code symbol breakpoints in the sign column
+vim.fn.sign_define("DapBreakpoint", { text = "󰙦 ", texthl = "DapBreakpoint", linehl = "", numhl = "DapBreakpoint" })
+vim.fn.sign_define("DapBreakpointCondition", { text = "󰙧 ", texthl = "DapBreakpointConditional", linehl = "", numhl = "DapBreakpointConditional" })
+vim.fn.sign_define("DapBreakpointRejected", { text = " ", texthl = "DapBreakpointRejected", linehl = "", numhl = "DapBreakpointRejected" })
+vim.fn.sign_define("DapStopped", { text = "", texthl = "DapStopped", linehl = "DapStoppedLine", numhl = "DapStopped" })
+vim.fn.sign_define("DapLogPoint", { text = "", texthl = "DapLogPoint", linehl = "DapLogPoint", numhl = "DapLogPoint" })
 ```
 
 

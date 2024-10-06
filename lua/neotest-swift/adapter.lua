@@ -60,7 +60,7 @@ local function get_dap_config(test_name, dap_args)
     name = "Neotest-swift",
     request = "launch",
     mode = "test",
-    program = "${fileDirname}",
+    program = "${file}",
     args = { "--filter", test_name },
   }, dap_args or {})
 end
