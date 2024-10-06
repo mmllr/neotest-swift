@@ -243,9 +243,9 @@ return function(config)
 					end
 				end
 
-				local swiftConfigFile = async.fn.readfile(get_root(pos.path) .. "/Package.swift")
+				local swift_config_file = async.fn.readfile(get_root(pos.path) .. "/Package.swift")
 				local package_name
-				for line in swiftConfigFile:lines() do
+				for _, line in ipairs(swift_config_file) do
 					-- Search for first line line containing 'name: "PackageName": '
 					package_name = string.match(line, 'name:%s*"([^"]+)"')
 					if package_name then
