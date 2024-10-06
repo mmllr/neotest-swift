@@ -3,6 +3,7 @@
 This is a basic [neotest](https://github.com/nvim-neotest/neotest) adapter that allows running tests using the `swift test` command.
 
 ![screenshot](images/neotest-swift.png)
+![screenshot](images/neotest-swift-dap.png)
 
 ### Features
 
@@ -121,11 +122,10 @@ vim.keymap.set("n", "<Leader>tp", function() require("neotest").output_panel.tog
 -- nvim-dap
 vim.keymap.set("n", "<Leader>et", function() require("neotest").run.run({ strategy = "dap" }) end, { desc = 'Debug nearest test' })
 vim.keymap.set("n", "<Leader>eb", function() require("dap").toggle_breakpoint() end, { desc = "Debug set breakpoint" })
-vim.keymap.set("n", "<leader>ee", function() require("dapui").eval() end, { desc = "Debug evaluate" })
+vim.keymap.set("v", "<leader>ee", function() require("dapui").eval() end, { desc = "Debug evaluate" })
 vim.keymap.set("n", "<Leader>ec", function() require("dap").continue() end, { desc = "Debug continue" })
 vim.keymap.set("n", "<Leader>eo", function() require("dap").step_over() end, { desc = "Debug step over" })
 vim.keymap.set("n", "<Leader>ei", function() require("dap").step_into() end, { desc = "Debug step into" })
-vim.keymap.set("n", "<Leader>er", function() require("dap").repl.open() end, { desc = "Debug run repl" })
 
 vim.api.nvim_create_user_command("DAPUI", function() require("dapui").toggle() end, { desc = "Open DAPUI" })
 ```
