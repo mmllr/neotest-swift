@@ -123,8 +123,8 @@ vim.keymap.set("n", "<Leader>et", function() require("neotest").run.run({ strate
 vim.keymap.set("n", "<Leader>eb", function() require("dap").toggle_breakpoint() end, { desc = "Debug set breakpoint" })
 vim.keymap.set("n", "<leader>ee", function() require("dapui").eval() end, { desc = "Debug evaluate" })
 vim.keymap.set("n", "<Leader>ec", function() require("dap").continue() end, { desc = "Debug continue" })
-vim.keymap.set("n", "<Leader>eo", function() require("dap").continue() end, { desc = "Debug step over" })
-vim.keymap.set("n", "<Leader>ei", function() require("dap").continue() end, { desc = "Debug step into" })
+vim.keymap.set("n", "<Leader>eo", function() require("dap").over() end, { desc = "Debug step over" })
+vim.keymap.set("n", "<Leader>ei", function() require("dap").into() end, { desc = "Debug step into" })
 vim.keymap.set("n", "<Leader>er", function() require("dap").repl.open() end, { desc = "Debug run repl" })
 
 vim.api.nvim_create_user_command("DAPUI", function() require("dapui").toggle() end, { desc = "Open DAPUI" })
