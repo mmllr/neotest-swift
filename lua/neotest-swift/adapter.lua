@@ -86,6 +86,28 @@ local function swift_test_list()
 	return result
 end
 
+-- @return vim.SystemObj
+local function swift_package_describe()
+	local describe_cmd = { "swift", "package", "describe" }
+	local describe_cmd_string = table.concat(describe_cmd, " ")
+	logger.debug("Running swift package describe: " .. describe_cmd_string)
+	local result = vim.system(describe_cmd, { text = true }):wait()
+
+	local err = nil
+	if result.code == 1 then
+		err = "swift package describe:"
+		if result.stdout ~= nil and result.stdout ~= "" then
+			err = err .. " " .. result.stdout
+		end
+		if result.stdout ~= nil and result.stderr ~= "" then
+			err = err .. " " .. result.stderr
+		end
+		logger.error({ "Swift package describe error: ", err })
+	end
+	return result
+end
+
+
 ---@param result neotest.StrategyResult
 ---@param tree neotest.Tree
 local function parse_test_result_output(result, tree)
@@ -243,12 +265,12 @@ return function(config)
 						break
 					end
 				end
-
-				local swift_config_file = async.fn.readfile(get_root(pos.path) .. "/Package.swift")
+				local describe_result = swift_package_describe()
+				local describe_output = describe_result.stdout or ""
 				local package_name
-				for _, line in ipairs(swift_config_file) do
-					-- Search for first line line containing 'name: "PackageName": '
-					package_name = string.match(line, 'name:%s*"([^"]+)"')
+				for line in describe_output:gmatch("[^\r\n]+") do
+					-- Search for first line line containing Name: hello
+					package_name = string.match(line, 'Name:%s*"([^"]+)"')
 					if package_name then
 						break
 					end
