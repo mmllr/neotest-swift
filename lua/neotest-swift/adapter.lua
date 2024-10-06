@@ -52,17 +52,17 @@ local get_root = lib.files.match_root_pattern("Package.swift")
 
 --- @param test_name string
 --- @param dap_args? table
---- @param program string
 --- @return table | nil
-local function get_dap_config(test_name, dap_args, program)
+local function get_dap_config(test_name, bundle_name, dap_args)
+	-- Example command `lldb /Applications/Xcode.app/Contents/Developer/usr/bin/xctest -- -XCTest AppTests.AppTests/testHelloWorld .build/debug/helloPackageTests.xctest`
 	-- :help dap-configuration
 	return vim.tbl_extend("force", {
 		type = "swift",
 		name = "Neotest-swift",
 		request = "launch",
 		mode = "test",
-		program = program,
-		args = { "--filter", test_name },
+		program = "/Applications/Xcode.app/Contents/Developer/usr/bin/xctest",
+		args = { "-XCTest", test_name, bundle_name },
 	}, dap_args or {})
 end
 
@@ -233,20 +233,32 @@ return function(config)
 				-- id pattern /Users/emmet/projects/hello/Tests/AppTests/fileName.swift::className::testName
 				local class_name, test_name = string.match(pos.id, "[:][:]([%w_-]+)[:][:]([%w_-]+)")
 				local list_result = swift_test_list()
-                local output = list_result.stdout or ""
-                local program = ""
+				local output = list_result.stdout or ""
+				local full_test_name = ""
 				for line in output:gmatch("[^\r\n]+") do
 					local suite, namespace, test = string.match(line, "([%w-_]+)%.([%w-_]+)%/([%w-_]+)")
 					if suite and namespace == class_name and test == test_name then
-                        program = get_root(pos.path) .. ".build/debug/" .. suite .. ".build/"
+						full_test_name = suite .. "." .. class_name .. "/" .. test_name
+						break
 					end
 				end
 
-                if program == "" then
-                    logger.error("Failed to find debug program.")
-                end
+				local swiftConfigFile = async.fn.readfile(get_root(pos.path) .. "/Package.swift")
+				local package_name
+				for line in swiftConfigFile:lines() do
+					-- Search for first line line containing 'name: "PackageName": '
+					package_name = string.match(line, 'name:%s*"([^"]+)"')
+					if package_name then
+						break
+					end
+				end
 
-				strategy_config = get_dap_config(class_name .. "/" .. test_name, config.dap_args or {}, program)
+				if not package_name then
+					logger.error("Swift packageName not found.")
+				end
+
+				local test_bundle = ".build/debug/" .. package_name .. ".xctest"
+				strategy_config = get_dap_config(full_test_name, test_bundle, config.dap_args or {})
 				logger.debug("DAP strategy used: " .. vim.inspect(strategy_config))
 				return {
 					command = { "swift", "test" },
