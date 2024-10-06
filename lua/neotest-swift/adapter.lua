@@ -52,22 +52,44 @@ local get_root = lib.files.match_root_pattern("Package.swift")
 
 --- @param test_name string
 --- @param dap_args? table
+--- @param program string
 --- @return table | nil
-local function get_dap_config(test_name, dap_args)
-  -- :help dap-configuration
-  return vim.tbl_extend('force', {
-    type = "swift",
-    name = "Neotest-swift",
-    request = "launch",
-    mode = "test",
-    program = "${file}",
-    args = { "--filter", test_name },
-  }, dap_args or {})
+local function get_dap_config(test_name, dap_args, program)
+	-- :help dap-configuration
+	return vim.tbl_extend("force", {
+		type = "swift",
+		name = "Neotest-swift",
+		request = "launch",
+		mode = "test",
+		program = program,
+		args = { "--filter", test_name },
+	}, dap_args or {})
+end
+
+-- @return vim.SystemObj
+local function swift_test_list()
+	local list_cmd = { "swift", "test", "list", "--skip-build" }
+	local list_cmd_string = table.concat(list_cmd, " ")
+	logger.debug("Running swift list: " .. list_cmd_string)
+	local result = vim.system(list_cmd, { text = true }):wait()
+
+	local err = nil
+	if result.code == 1 then
+		err = "swift list:"
+		if result.stdout ~= nil and result.stdout ~= "" then
+			err = err .. " " .. result.stdout
+		end
+		if result.stdout ~= nil and result.stderr ~= "" then
+			err = err .. " " .. result.stderr
+		end
+		logger.error({ "Swift list error: ", err })
+	end
+	return result
 end
 
 ---@param result neotest.StrategyResult
 ---@param tree neotest.Tree
-local function parseTestResultOutput(result, tree)
+local function parse_test_result_output(result, tree)
 	--- Internal data structure to store test result data.
 	--- @type table<string, TestData>
 	local res = {}
@@ -81,7 +103,7 @@ local function parseTestResultOutput(result, tree)
 		local child = node:data()
 		logger.info("Node info: " .. child.id .. " - " .. child.type)
 		if child.type == "test" then
-            -- id pattern /Users/emmet/projects/hello/Tests/AppTests/fileName.swift::className::testName
+			-- id pattern /Users/emmet/projects/hello/Tests/AppTests/fileName.swift::className::testName
 			local class_name, test_name = string.match(child.id, "[:][:]([%w_-]+)[:][:]([%w_-]+)")
 			if class_name and test_name then
 				local simple_name = class_name .. "/" .. test_name
@@ -202,12 +224,36 @@ return function(config)
 				return
 			end
 
+			local context = {
+				pos_id = pos.id,
+			}
+
 			local strategy_config = nil
 			if args.strategy == "dap" then
-                -- id pattern /Users/emmet/projects/hello/Tests/AppTests/fileName.swift::className::testName
-                local class_name, test_name = string.match(pos.id, "[:][:]([%w_-]+)[:][:]([%w_-]+)")
-				strategy_config = get_dap_config(class_name .. "/" .. test_name)
+				-- id pattern /Users/emmet/projects/hello/Tests/AppTests/fileName.swift::className::testName
+				local class_name, test_name = string.match(pos.id, "[:][:]([%w_-]+)[:][:]([%w_-]+)")
+				local list_result = swift_test_list()
+                local output = list_result.stdout or ""
+                local program = ""
+				for line in output:gmatch("[^\r\n]+") do
+					local suite, namespace, test = string.match(line, "([%w-_]+)%.([%w-_]+)%/([%w-_]+)")
+					if suite and namespace == class_name and test == test_name then
+                        program = get_root(pos.path) .. ".build/debug/" .. suite .. ".build/"
+					end
+				end
+
+                if program == "" then
+                    logger.error("Failed to find debug program.")
+                end
+
+				strategy_config = get_dap_config(class_name .. "/" .. test_name, config.dap_args or {}, program)
 				logger.debug("DAP strategy used: " .. vim.inspect(strategy_config))
+				return {
+					command = { "swift", "test" },
+					cwd = get_root(pos.path),
+					context = context,
+					strategy = strategy_config,
+				}
 			end
 
 			-- Below is the main logic of figuring out how to execute tests. In short,
@@ -236,45 +282,25 @@ return function(config)
 				-- directory.
 				local cmd = { "swift", "test" }
 
-				local context = {
-					pos_id = pos.id,
-				}
-
 				if args.extra_args and args.extra_args.target then
-					local list_cmd = { "swift", "test", "list", "--skip-build" }
-					local list_cmd_string = table.concat(list_cmd, " ")
-					logger.debug("Running swift list: " .. list_cmd_string)
-					local result = vim.system(list_cmd, { text = true }):wait()
-
-					local err = nil
-					if result.code == 1 then
-						err = "swift list:"
-						if result.stdout ~= nil and result.stdout ~= "" then
-							err = err .. " " .. result.stdout
+					local list_result = swift_test_list()
+					local output = list_result.stdout or ""
+					local suites = {}
+					for line in output:gmatch("[^\r\n]+") do
+						local suite, namespace, test = string.match(line, "([%w-_]+)%.([%w-_]+)%/([%w-_]+)")
+						if suite and namespace and test then
+							table.insert(suites, suite)
 						end
-						if result.stdout ~= nil and result.stderr ~= "" then
-							err = err .. " " .. result.stderr
-						end
-						logger.error({ "Swift list error: ", err })
-					else
-						local output = result.stdout or ""
-						local suites = {}
-						for line in output:gmatch("[^\r\n]+") do
-							local suite, namespace, test = string.match(line, "([%w-_]+)%.([%w-_]+)%/([%w-_]+)")
-							if suite and namespace and test then
-								table.insert(suites, suite)
-							end
-						end
-						for _, suite in ipairs(suites) do
-							if string.find(vim.fn.expand("%"), suite) then
-								table.insert(cmd, "--filter")
-								table.insert(cmd, suite)
-								return {
-									command = cmd,
-									cwd = get_root(pos.path),
-									context = context,
-								}
-							end
+					end
+					for _, suite in ipairs(suites) do
+						if string.find(vim.fn.expand("%"), suite) then
+							table.insert(cmd, "--filter")
+							table.insert(cmd, suite)
+							return {
+								command = cmd,
+								cwd = get_root(pos.path),
+								context = context,
+							}
 						end
 					end
 				end
@@ -303,10 +329,6 @@ return function(config)
 					table.insert(cmd, "--filter")
 					table.insert(cmd, class)
 				end
-
-				local context = {
-					pos_id = pos.id,
-				}
 
 				--- @type neotest.RunSpec
 				local run_spec = {
@@ -337,10 +359,6 @@ return function(config)
 					table.insert(cmd, "--filter")
 					table.insert(cmd, test)
 				end
-
-				local context = {
-					pos_id = pos.id,
-				}
 
 				--- @type neotest.RunSpec
 				local run_spec = {
@@ -397,7 +415,7 @@ return function(config)
 				logger.error("Unexpected state when determining test status. Exit code was: " .. result.code)
 			end
 
-			local neotest_result = parseTestResultOutput(result, tree)
+			local neotest_result = parse_test_result_output(result, tree)
 			if neotest_result[pos.id] then
 				neotest_result[pos.id]["status"] = result_status
 				neotest_result[pos.id]["output"] = result.output
