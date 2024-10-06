@@ -10,7 +10,7 @@ This is a basic [neotest](https://github.com/nvim-neotest/neotest) adapter that 
 - [x] Test watching
 - [x] Virtual text showing test failure messages
 - [x] Displaying full and short test output
-- DAP support
+- [x] DAP support
 
 
 ### Installation
@@ -61,34 +61,47 @@ Requires:
 ```lua
 local dap = require("dap")
 
+local dapui = require("dapui")
+dapui.setup()
+
+-- Automatically attach and detach from DAPUI
+dap.listeners.before.attach.dapui_config = function()
+	dapui.open()
+end
+dap.listeners.before.launch.dapui_config = function()
+	dapui.open()
+end
+dap.listeners.before.event_terminated.dapui_config = function()
+	dapui.close()
+end
+dap.listeners.before.event_exited.dapui_config = function()
+	dapui.close()
+end
+
+-- Use swift's LLDB
+local libLLDB = "/Applications/Xcode.app/Contents/SharedFrameworks/LLDB.framework/Versions/A/LLDB"
+
 dap.adapters.swift = {
 	type = "server",
 	port = "${port}",
 	executable = {
-		command = "/Users/emmet/.local/share/nvim/mason/bin/codelldb", -- Modify with your absolute path
-		args = { "--port", "${port}" },
+		command = "/Users/emmet/.local/share/nvim/mason/bin/codelldb", -- Use your exectuable I got this from Mason
+		args = { "--liblldb", libLLDB, "--port", "${port}" },
 	},
 }
 
 dap.configurations.swift = {
-  {
-    name = "Launch file",
-    type = "swift",
-    request = "launch",
-    program = function()
-      return vim.fn.input('Path to executable: ', vim.fn.getcwd() .. '/', 'file')
-    end,
-    cwd = '${workspaceFolder}',
-    stopOnEntry = false,
-  },
+	{
+		name = "Launch file",
+		type = "swift",
+		request = "launch",
+		program = function()
+			return vim.fn.input("Path to executable: ", vim.fn.getcwd() .. "/", "file")
+		end,
+		cwd = "${workspaceFolder}",
+		stopOnEntry = false,
+	},
 }
-
--- Optional config for code symbol breakpoints in the sign column
-vim.fn.sign_define("DapBreakpoint", { text = "󰙦 ", texthl = "DapBreakpoint", linehl = "", numhl = "DapBreakpoint" })
-vim.fn.sign_define("DapBreakpointCondition", { text = "󰙧 ", texthl = "DapBreakpointConditional", linehl = "", numhl = "DapBreakpointConditional" })
-vim.fn.sign_define("DapBreakpointRejected", { text = " ", texthl = "DapBreakpointRejected", linehl = "", numhl = "DapBreakpointRejected" })
-vim.fn.sign_define("DapStopped", { text = "", texthl = "DapStopped", linehl = "DapStoppedLine", numhl = "DapStopped" })
-vim.fn.sign_define("DapLogPoint", { text = "", texthl = "DapLogPoint", linehl = "DapLogPoint", numhl = "DapLogPoint" })
 ```
 
 
@@ -97,7 +110,6 @@ vim.fn.sign_define("DapLogPoint", { text = "", texthl = "DapLogPoint", linehl
 ```lua
 -- Neotest
 vim.keymap.set("n", "<Leader>tr", function() require("neotest").run.run() end, { desc = 'Run nearest test' })
-vim.keymap.set("n", "<Leader>td", function() require("neotest").run.run({ strategy = "dap" }) end, { desc = 'Debug nearest test' })
 vim.keymap.set("n", "<Leader>tf", function() require("neotest").run.run(vim.fn.expand("%")) end, { desc = 'Run all tests in file' })
 vim.keymap.set("n", "<Leader>ta", function() require("neotest").run.run({ suite = true }) end, { desc = 'Run all tests in project' })
 vim.keymap.set("n", "<Leader>tt", function() require("neotest").run.run({ suite = true, extra_args = { target = true } }) end, { desc = 'Run all tests in target (swift).' })
@@ -107,12 +119,13 @@ vim.keymap.set("n", "<Leader>to", function() require("neotest").output.open({ sh
 vim.keymap.set("n", "<Leader>tp", function() require("neotest").output_panel.toggle() end, { silent = true, desc = 'Toggle test output pane' })
 
 -- nvim-dap
-vim.keymap.set("n", "<Leader>db", function() require("dap").toggle_breakpoint() end, { desc = "Debug set breakpoint" })
-vim.keymap.set("n", "<leader>de", function() require("dapui").eval() end, { desc = "Debug evaluate" })
-vim.keymap.set("n", "<Leader>dc", function() require("dap").continue() end, { desc = "Debug continue" })
-vim.keymap.set("n", "<Leader>do", function() require("dap").continue() end, { desc = "Debug step over" })
-vim.keymap.set("n", "<Leader>di", function() require("dap").continue() end, { desc = "Debug step into" })
-vim.keymap.set("n", "<Leader>dr", function() require("dap").repl.open() end, { desc = "Debug run repl" })
+vim.keymap.set("n", "<Leader>et", function() require("neotest").run.run({ strategy = "dap" }) end, { desc = 'Debug nearest test' })
+vim.keymap.set("n", "<Leader>eb", function() require("dap").toggle_breakpoint() end, { desc = "Debug set breakpoint" })
+vim.keymap.set("n", "<leader>ee", function() require("dapui").eval() end, { desc = "Debug evaluate" })
+vim.keymap.set("n", "<Leader>ec", function() require("dap").continue() end, { desc = "Debug continue" })
+vim.keymap.set("n", "<Leader>eo", function() require("dap").continue() end, { desc = "Debug step over" })
+vim.keymap.set("n", "<Leader>ei", function() require("dap").continue() end, { desc = "Debug step into" })
+vim.keymap.set("n", "<Leader>er", function() require("dap").repl.open() end, { desc = "Debug run repl" })
 
 vim.api.nvim_create_user_command("DAPUI", function() require("dapui").toggle() end, { desc = "Open DAPUI" })
 ```
