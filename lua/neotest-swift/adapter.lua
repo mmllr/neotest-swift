@@ -107,7 +107,6 @@ local function swift_package_describe()
 	return result
 end
 
-
 ---@param result neotest.StrategyResult
 ---@param tree neotest.Tree
 local function parse_test_result_output(result, tree)
@@ -189,7 +188,10 @@ local function parse_test_result_output(result, tree)
 			table.insert(test_lines, line)
 			local line_number, error_message = string.match(line, ":(%d+):[^:]+[:][^:]+:(.+)")
 			if line_number and error_message then
-				table.insert(errors, { message = error_message, line = tonumber(line_number) })
+				table.insert(errors, {
+					message = error_message,
+					line = tonumber(line_number) - 1, -- neovim lines are 0-indexed
+				})
 			else
 				table.insert(errors, { message = line })
 			end
@@ -269,7 +271,7 @@ return function(config)
 				local describe_output = describe_result.stdout or ""
 				local package_name
 				for line in describe_output:gmatch("[^\r\n]+") do
-                    logger.info("Got line: " .. line)
+					logger.info("Got line: " .. line)
 					-- Search for first line line containing Name: hello
 					package_name = string.match(line, 'Name:%s*([^"]+)')
 					if package_name then
