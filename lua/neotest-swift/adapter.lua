@@ -232,7 +232,7 @@ return function(config)
 		name = "neotest-swift",
 		root = get_root,
 		filter_dir = function(name)
-			local ignore_dirs = { ".git", "node_modules", ".venv", "venv" }
+			local ignore_dirs = { ".git", "node_modules", ".venv", "venv", "Sources", "build", ".build", ".swiftpm" }
 			for _, ignore in ipairs(ignore_dirs) do
 				if name == ignore then
 					return false
