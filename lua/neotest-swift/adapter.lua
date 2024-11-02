@@ -45,6 +45,22 @@ local treesitter_queries = [[
       name: (simple_identifier) @test.name
       (#match? @test.name "^test.*")
     )) @test.definition
+
+    ;; struct TestSuite
+    ((class_declaration
+      (modifiers
+        (attribute
+            (user_type
+                (type_identifier) @annotation (#eq? @annotation "Suite"))))
+         name: (type_identifier)) @namespace.name) @namespace.definition
+
+    ;; test func 
+    ((function_declaration
+      (modifiers
+        (attribute
+            (user_type
+                (type_identifier) @annotation (#eq? @annotation "Test"))))
+         name: (simple_identifier) @test.name)) @test.definition
   ]]
 
 local get_root = lib.files.match_root_pattern("Package.swift")
